@@ -1,0 +1,31 @@
+[project]
+name = "music_style"
+version = "0.1.0"
+description = "Training a DL model to predict the type of the music"
+readme = "README.md"
+authors = [
+    { name = "Antoine Hanachowicz", email = "antoine.hanachowicz@outlook.com" },
+
+]
+requires-python = ">=3.12"
+
+
+dependencies = [
+    "torch",
+    "torchaudio",
+    "pandas",
+    "librosa",
+    "soundfile",
+    "audioread",
+    "tensorboard",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["my_pkg*"]
+exclude = ["data"]
+
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
