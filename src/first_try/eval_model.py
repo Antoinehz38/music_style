@@ -8,9 +8,6 @@ from src.tools.CNNs.CNNs import MODEL_PARAMS, SmallCNN
 from src.tools.parse_args import parse_args
 from src.tools.config_saver.saver import RunSummary
 
-torch.set_num_threads(os.cpu_count())
-torch.set_num_interop_threads(1)
-
 seed = 1234
 
 def seed_worker(worker_id):
