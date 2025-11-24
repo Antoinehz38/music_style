@@ -1,5 +1,9 @@
 import os, numpy as np, json
 import torch
+
+torch.set_num_threads(os.cpu_count())
+torch.set_num_interop_threads(1)
+
 from datetime import datetime
 from torch.utils.data import DataLoader
 from torch.optim import AdamW
@@ -15,9 +19,6 @@ from src.first_try.eval_model import eval_loss_acc_multicrop
 
 OPTIM_PARAMS = {"AdamW":AdamW}
 
-torch.set_num_threads(os.cpu_count())
-torch.set_num_interop_threads(1)
-
 seed = 1234
 np.random.seed(seed)
 torch.manual_seed(seed)
@@ -27,9 +28,9 @@ def seed_worker(worker_id):
     worker_seed = torch.initial_seed() % 2**32
     np.random.seed(worker_seed)
 
-g_train = torch.Generator().manual_seed(1234)
-g_val   = torch.Generator().manual_seed(1234)
-g_test  = torch.Generator().manual_seed(1234)
+g_train = torch.Generator().manual_seed(seed)
+g_val   = torch.Generator().manual_seed(seed)
+g_test  = torch.Generator().manual_seed(seed)
 
 def eval_loss_acc(model, loader, loss_fn, device):
     model.eval()
@@ -120,16 +121,16 @@ if __name__ == "__main__":
     ROOT = Path(__file__).resolve().parents[2]
     mels_root = str(ROOT / "data" / "mels128")
     metadata_root = str(ROOT / "data" / "fma_metadata")
-    time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    now = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 
     args = parse_args()
     if args.run_from == "new_conf":
-        config_run = RunSummary(random_crop=True, model_type="CRNN", dataset_type="MelNpyDataset",optim_type="AdamW",
-                                target_T=256, seed=1234, batch_size=32, lr=3e-4, weight_decay=1e-4, epoch=35)
-        config_run.name = f"best_model_{time}.pt"
+        config_run = RunSummary(random_crop=True, model_type="CRNNv2", dataset_type="MelNpyDataset",optim_type="AdamW",
+                                target_T=256, seed=seed, batch_size=32, lr=3e-4, weight_decay=1e-4, epoch=35)
+        config_run.name = f"best_model_{now}.pt"
     else:
         config_run = RunSummary()
-        config_run.name = f"best_model_{time}.pt"
+        config_run.name = f"best_model_{now}.pt"
 
         with open(args.run_from, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -156,7 +157,7 @@ if __name__ == "__main__":
     train(model, train_loader, val_loader, run_config=config_run, device=device,
           log_dir=str(Path(__file__).resolve().parents[0] / "./runs/first_try"))
 
-    model.load_state_dict(torch.load("src/first_try/best_model.pt"))
+    model.load_state_dict(torch.load("src/first_try/" + config_run.name))
     test_loss, test_acc = eval_loss_acc_multicrop(
         model, test_loader, torch.nn.CrossEntropyLoss(), device,
         target_T=config_run.target_T, K=5
@@ -164,7 +165,7 @@ if __name__ == "__main__":
     print("FINAL test accuracy:", test_acc)
     config_run.test_results=test_acc
 
-    file_to_save = f"src/runs_configs/{time}.json"
+    file_to_save = f"src/runs_configs/{now}.json"
 
     if args.run_from == "new_conf":
         with open(file_to_save, "w", encoding="utf-8") as f:

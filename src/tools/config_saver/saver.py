@@ -50,3 +50,6 @@ class RunSummary:
         self.seed = data.get("seed", 1234)
         self.use_augment = data.get("use_augment", False)
         self.name = data.get("name", "best_model.pt")
+
+        if "RCNN" in self.model_type:
+            self.use_augment = True

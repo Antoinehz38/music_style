@@ -8,13 +8,12 @@ from src.tools.CNNs.CNNs import MODEL_PARAMS, SmallCNN
 from src.tools.parse_args import parse_args
 from src.tools.config_saver.saver import RunSummary
 
-seed = 1234
+
 
 def seed_worker(worker_id):
     # seed unique et déterministe par worker
     worker_seed = torch.initial_seed() % 2**32
     np.random.seed(worker_seed)
-g_test  = torch.Generator().manual_seed(1234)
 
 def eval_loss_acc(model, loader, loss_fn, device):
     model.eval()
@@ -102,6 +101,7 @@ if __name__ == '__main__':
             data = json.load(f)
         config_run.load_data(data)
 
+    g_test = torch.Generator().manual_seed(config_run.seed)
     test_ds  = MelNpyDataset(mels_root, metadata_root, split="test",
                              target_T=1292, random_crop=config_run.random_crop)
 

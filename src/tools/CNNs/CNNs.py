@@ -1,6 +1,8 @@
 import torch.nn as nn
 import torch
 
+from src.tools.CNNs.RCNN_V2 import CRNNv2
+
 
 class SmallCNN(nn.Module):
     def __init__(self, n_classes):
@@ -200,4 +202,4 @@ class CRNN(nn.Module):
 
 
 
-MODEL_PARAMS = {"SmallCNN": SmallCNN, "CRNN": CRNN}
+MODEL_PARAMS = {"SmallCNN": SmallCNN, "CRNN": CRNN, "CRNNv2": CRNNv2}
