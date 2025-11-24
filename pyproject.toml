@@ -5,10 +5,8 @@ description = "Training a DL model to predict the type of the music"
 readme = "README.md"
 authors = [
     { name = "Antoine Hanachowicz", email = "antoine.hanachowicz@outlook.com" },
-
 ]
 requires-python = ">=3.12"
-
 
 dependencies = [
     "torch",
@@ -20,12 +18,14 @@ dependencies = [
     "tensorboard",
 ]
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["my_pkg*"]
-exclude = ["data"]
-
-
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["music_style*"]
+exclude = ["data"]

@@ -16,8 +16,9 @@ def mel_128_norm_per_track(path, sr=22050, n_fft=2048, hop_length=512,
 
 
 if __name__ == '__main__':
-    in_dir = Path("../../data/fma_small")              # chemin corrigé
-    out_dir = Path("../../data/mels128")
+    ROOT = Path(__file__).resolve().parents[2]
+    in_dir = ROOT / "data" / "fma_small"
+    out_dir = ROOT / "data" / "mels128"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # récup liste audio

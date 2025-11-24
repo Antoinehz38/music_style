@@ -4,10 +4,13 @@ from torch.utils.data import DataLoader
 from torch.optim import Adam
 from torch.utils.tensorboard import SummaryWriter
 from time import time
+from pathlib import Path
 
 from src.tools.mels_dataset import MelNpyDataset
-from src.tools.CNNs.small_cnn import SmallCNN
+from src.tools.CNNs.CNNs import SmallCNN
 
+torch.set_num_threads(os.cpu_count())
+torch.set_num_interop_threads(1)
 
 def eval_loss_acc(model, loader, loss_fn, device):
     model.eval()
@@ -81,15 +84,17 @@ def train(
 
         if val_acc > best_val_acc:
             best_val_acc = val_acc
-            torch.save(model.state_dict(), "best_model.pt")
+            model_path = "src/baseline/best_model.pt"
+            torch.save(model.state_dict(), model_path)
             print(f"saved best model at epoch {ep}")
 
     writer.close()
 
 
 if __name__ == "__main__":
-    mels_root = "../../data/mels128"
-    metadata_root = "../../data/fma_metadata"
+    ROOT = Path(__file__).resolve().parents[2]
+    mels_root = str(ROOT / "data" / "mels128")
+    metadata_root = str(ROOT / "data" / "fma_metadata")
 
     train_ds = MelNpyDataset(mels_root, metadata_root, split="training", target_T=1292)
     val_ds   = MelNpyDataset(mels_root, metadata_root, split="validation", target_T=1292)
@@ -108,8 +113,8 @@ if __name__ == "__main__":
     model = SmallCNN(train_ds.n_classes)
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    train(model, train_loader, val_loader, epochs=20, lr=1e-3, device=device)
+    train(model, train_loader, val_loader, epochs=20, lr=1e-3, device=device, log_dir=str(Path(__file__).resolve().parents[0] / "./runs/baseline"))
 
-    model.load_state_dict(torch.load("best_model.pt"))
+    model.load_state_dict(torch.load("src/baseline/best_model.pt"))
     test_loss, test_acc = eval_loss_acc(model, test_loader, torch.nn.CrossEntropyLoss(), device)
     print("FINAL test accuracy:", test_acc)
