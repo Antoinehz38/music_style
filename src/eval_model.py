@@ -105,7 +105,7 @@ if __name__ == '__main__':
     model = MODEL_PARAMS.get(config_run.model_type, SmallCNN)(test_ds.n_classes)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model_path = str(Path(__file__).resolve().parents[0] / "weight" / config_run.name)
-    model.load_state_dict(torch.load(model_path))
+    model.load_state_dict(torch.load(model_path, map_location=torch.device(device)))
     if args.vote:
         test_acc = eval_acc_multicrop_majority(
             model, test_loader, device,
