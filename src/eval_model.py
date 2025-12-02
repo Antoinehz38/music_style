@@ -1,5 +1,5 @@
 import numpy as np
-import json, torch
+import json, torch, os
 from torch.utils.data import DataLoader
 from pathlib import Path
 import torch.nn.functional as F
@@ -98,7 +98,8 @@ if __name__ == '__main__':
     test_ds  = MelNpyDataset(mels_root, metadata_root, split="test",
                              target_T=1292, random_crop=config_run.random_crop)
 
-    test_loader = DataLoader(test_ds, batch_size=config_run.batch_size, shuffle=False, num_workers=12,
+    num_worker = min(os.cpu_count(), 12)
+    test_loader = DataLoader(test_ds, batch_size=config_run.batch_size, shuffle=False, num_workers=num_worker,
                              worker_init_fn=seed_worker, generator=g_test, persistent_workers=True)
 
     model = MODEL_PARAMS.get(config_run.model_type, SmallCNN)(test_ds.n_classes)
