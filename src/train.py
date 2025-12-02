@@ -2,6 +2,7 @@ import os, numpy as np, json
 import torch
 
 torch.set_num_threads(os.cpu_count())
+print('nombre de cpu : ', os.cpu_count())
 torch.set_num_interop_threads(1)
 
 from datetime import datetime
@@ -46,6 +47,7 @@ def train(
                                                          weight_decay=run_config.weight_decay)
     else:
         opt = OPTIM_PARAMS.get(run_config.optim_type, AdamW)(model.parameters(), lr=run_config.lr)
+
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         opt,
         T_max=config_run.epoch
@@ -69,6 +71,7 @@ def train(
             logits = model(x)
             loss = loss_fn(logits, y)
             loss.backward()
+            #torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             opt.step()
 
             writer.add_scalar("train/batch_loss", loss.item(), global_step)
@@ -112,7 +115,7 @@ if __name__ == "__main__":
     print('baseline = ', args.baseline)
     if args.run_from == "new_conf":
         config_run = RunSummary(random_crop=True, model_type="CRNN_V2", dataset_type="MelNpyDataset",optim_type="AdamW",
-                                target_T=256, seed=seed, batch_size=32, lr=0.0003, weight_decay=0.0001, epoch=35)
+                                target_T=256, seed=seed, batch_size=32, lr=0.0002, weight_decay=0.0001, epoch=35)
     else:
         config_run = RunSummary()
         with open(args.run_from, "r", encoding="utf-8") as f:
@@ -120,6 +123,7 @@ if __name__ == "__main__":
         config_run.load_data(data)
 
     config_run.name = f"best_model_{now}.pt"
+    print(config_run.to_dict())
 
     train_ds = MelNpyDataset(mels_root, metadata_root, split="training",
                              target_T=config_run.target_T, random_crop=config_run.random_crop)
@@ -128,12 +132,12 @@ if __name__ == "__main__":
     test_ds  = MelNpyDataset(mels_root, metadata_root, split="test",
                              target_T=1292, random_crop=config_run.random_crop)
 
-
-    train_loader = DataLoader(train_ds, batch_size=config_run.batch_size, shuffle=True, num_workers=12,
+    num_worker = min(os.cpu_count(), 12)
+    train_loader = DataLoader(train_ds, batch_size=config_run.batch_size, shuffle=True, num_workers=num_worker,
                               worker_init_fn=seed_worker,generator=g_train,persistent_workers=True)
-    val_loader   = DataLoader(val_ds, batch_size=config_run.batch_size, shuffle=False, num_workers=12,
+    val_loader   = DataLoader(val_ds, batch_size=config_run.batch_size, shuffle=False, num_workers=num_worker,
                               worker_init_fn=seed_worker, generator=g_val, persistent_workers=True)
-    test_loader  = DataLoader(test_ds, batch_size=config_run.batch_size, shuffle=False, num_workers=12,
+    test_loader  = DataLoader(test_ds, batch_size=config_run.batch_size, shuffle=False, num_workers=num_worker,
                               worker_init_fn=seed_worker,generator=g_test,persistent_workers=True)
 
     model = MODEL_PARAMS.get(config_run.model_type, SmallCNN)(train_ds.n_classes)
