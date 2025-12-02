@@ -114,8 +114,8 @@ if __name__ == "__main__":
     args = parse_args()
     print('baseline = ', args.baseline)
     if args.run_from == "new_conf":
-        config_run = RunSummary(random_crop=True, model_type="CRNN", dataset_type="NewMelNpyDataset",optim_type="AdamW",
-                                target_T=512, seed=seed, batch_size=32, lr=0.0003, weight_decay=0.0001, epoch=35)
+        config_run = RunSummary(random_crop=True, model_type="CRNN", dataset_type="MelNpyDataset",optim_type="AdamW",
+                                target_T=256, seed=seed, batch_size=32, lr=0.0003, weight_decay=0.0001, epoch=35, val_training=True)
     else:
         config_run = RunSummary()
         with open(args.run_from, "r", encoding="utf-8") as f:
@@ -147,6 +147,11 @@ if __name__ == "__main__":
     print(config_run.to_dict())
     train(model, train_loader, val_loader, run_config=config_run, device=device,
           log_dir=str(Path(__file__).resolve().parents[0] / "./runs"))
+
+    if config_run.val_training:
+        print('Second training using val data')
+        train(model, val_loader, val_loader, run_config=config_run, device=device,
+              log_dir=str(Path(__file__).resolve().parents[0] / "./runs"))
 
     model.load_state_dict(torch.load("src/weight/" + config_run.name))
 

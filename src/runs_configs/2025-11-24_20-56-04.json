@@ -11,5 +11,6 @@
   "seed": 1234,
   "use_augment": true,
   "name": "best_model_2025-11-24_20-56-04.pt",
-  "final_result": 0.603125
+  "final_result": 0.603125,
+  "val_training": false
 }
