@@ -172,13 +172,14 @@ class CRNN_V2(nn.Module):
     """
     def __init__(
         self,
-        n_classes: int,
-        rnn_hidden: int = 160,
-        rnn_layers: int = 2,
-        proj_dim: int = 256,
-        time_mask: int = 32,
-        freq_mask: int = 16,
-        spec_p: float = 0.7,
+        n_classes:int,
+        rnn_hidden: int=128,
+        rnn_layers: int=1,
+        proj_dim: int=128,
+        time_mask: int=32,
+        freq_mask: int=16,
+        spec_p: int=0.7,
+
     ):
         super().__init__()
 
