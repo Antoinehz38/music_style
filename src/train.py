@@ -6,18 +6,18 @@ torch.set_num_interop_threads(1)
 
 from datetime import datetime
 from torch.utils.data import DataLoader
-from torch.optim import AdamW
+from torch.optim import AdamW, Adam
 from torch.utils.tensorboard import SummaryWriter
 from time import time
 from pathlib import Path
 
 from src.tools.mels_dataset import MelNpyDataset
-from src.tools.CNNs.CNNs import MODEL_PARAMS, SmallCNN
+from src.tools.CNNs import MODEL_PARAMS, SmallCNN
 from src.tools.parse_args import parse_args
-from src.tools.config_saver.saver import RunSummary
-from src.first_try.eval_model import eval_loss_acc_multicrop
+from src.tools.saver import RunSummary
+from src.eval_model import eval_acc_multicrop_majority, eval_loss_acc
 
-OPTIM_PARAMS = {"AdamW":AdamW}
+OPTIM_PARAMS = {"AdamW":AdamW, "Adam":Adam}
 
 seed = 1234
 np.random.seed(seed)
@@ -32,35 +32,20 @@ g_train = torch.Generator().manual_seed(seed)
 g_val   = torch.Generator().manual_seed(seed)
 g_test  = torch.Generator().manual_seed(seed)
 
-def eval_loss_acc(model, loader, loss_fn, device):
-    model.eval()
-    total_loss, ok, total = 0.0, 0, 0
-
-    with torch.no_grad():
-        for x, y in loader:
-            x, y = x.to(device), y.to(device)
-            logits = model(x)
-            loss = loss_fn(logits, y)
-
-            total_loss += loss.item() * x.size(0)
-            pred = logits.argmax(1)
-            ok += (pred == y).sum().item()
-            total += y.numel()
-
-    return total_loss / total, ok / total
-
-
 def train(
     model,
     train_loader,
     val_loader,
     run_config:RunSummary,
     device="cpu",
-    log_dir="./runs/first_try",
+    log_dir="./runs",
 ):
     model.to(device)
-    opt = OPTIM_PARAMS.get(run_config.optim_type, AdamW)(model.parameters(), lr=run_config.lr,
+    if config_run.weight_decay:
+        opt = OPTIM_PARAMS.get(run_config.optim_type, AdamW)(model.parameters(), lr=run_config.lr,
                                                          weight_decay=run_config.weight_decay)
+    else:
+        opt = OPTIM_PARAMS.get(run_config.optim_type, AdamW)(model.parameters(), lr=run_config.lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         opt,
         T_max=config_run.epoch
@@ -108,33 +93,33 @@ def train(
 
         if val_acc > best_val_acc:
             best_val_acc = val_acc
-            model_path = "src/first_try/best_model.pt"
+            model_path = "src/weight/best_model.pt"
             torch.save(model.state_dict(), model_path)
             print(f"saved best model at epoch {ep}")
 
         scheduler.step()
-    torch.save(model.state_dict(), "src/first_try/" + config_run.name)
+    torch.save(model.state_dict(), "src/weight/" + config_run.name)
     writer.close()
 
 
 if __name__ == "__main__":
-    ROOT = Path(__file__).resolve().parents[2]
+    ROOT = Path(__file__).resolve().parents[1]
     mels_root = str(ROOT / "data" / "mels128")
     metadata_root = str(ROOT / "data" / "fma_metadata")
     now = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 
     args = parse_args()
+    print('baseline = ', args.baseline)
     if args.run_from == "new_conf":
-        config_run = RunSummary(random_crop=True, model_type="CRNNv2", dataset_type="MelNpyDataset",optim_type="AdamW",
-                                target_T=256, seed=seed, batch_size=32, lr=3e-4, weight_decay=1e-4, epoch=35)
-        config_run.name = f"best_model_{now}.pt"
+        config_run = RunSummary(random_crop=True, model_type="CRNN_V2", dataset_type="MelNpyDataset",optim_type="AdamW",
+                                target_T=256, seed=seed, batch_size=32, lr=0.0003, weight_decay=0.0001, epoch=35)
     else:
         config_run = RunSummary()
-        config_run.name = f"best_model_{now}.pt"
-
         with open(args.run_from, "r", encoding="utf-8") as f:
             data = json.load(f)
         config_run.load_data(data)
+
+    config_run.name = f"best_model_{now}.pt"
 
     train_ds = MelNpyDataset(mels_root, metadata_root, split="training",
                              target_T=config_run.target_T, random_crop=config_run.random_crop)
@@ -155,13 +140,15 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     train(model, train_loader, val_loader, run_config=config_run, device=device,
-          log_dir=str(Path(__file__).resolve().parents[0] / "./runs/first_try"))
+          log_dir=str(Path(__file__).resolve().parents[0] / "./runs"))
 
-    model.load_state_dict(torch.load("src/first_try/" + config_run.name))
-    test_loss, test_acc = eval_loss_acc_multicrop(
-        model, test_loader, torch.nn.CrossEntropyLoss(), device,
+    model.load_state_dict(torch.load("src/weight/" + config_run.name))
+
+    test_acc = eval_acc_multicrop_majority(
+        model, test_loader, device,
         target_T=config_run.target_T, K=5
     )
+
     print("FINAL test accuracy:", test_acc)
     config_run.test_results=test_acc
 

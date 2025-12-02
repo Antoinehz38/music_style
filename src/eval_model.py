@@ -1,12 +1,13 @@
-import os, numpy as np
-import torch, json
+import numpy as np
+import json, torch
 from torch.utils.data import DataLoader
 from pathlib import Path
+import torch.nn.functional as F
 
 from src.tools.mels_dataset import MelNpyDataset
-from src.tools.CNNs.CNNs import MODEL_PARAMS, SmallCNN
+from src.tools.CNNs import MODEL_PARAMS, SmallCNN
 from src.tools.parse_args import parse_args
-from src.tools.config_saver.saver import RunSummary
+from src.tools.saver import RunSummary
 
 
 
@@ -32,61 +33,53 @@ def eval_loss_acc(model, loader, loss_fn, device):
 
     return total_loss / total, ok / total
 
-import torch
-import torch.nn.functional as F
-
-@torch.no_grad()
-def multicrop_logits(model, x_full, target_T=128, K=5):
-    """
-    x_full: [B,1,128,T_full]
-    retourne: logits_moy [B,n_classes]
-    crops déterministes espacés régulièrement.
-    """
-    B, C, Freq, T_full = x_full.shape
-    device = x_full.device
-
-    if T_full <= target_T:
-        # pad à droite si besoin (ou laisse tel quel si ton dataset pad déjà)
-        pad = target_T - T_full
-        if pad > 0:
-            x = F.pad(x_full, (0, pad), mode="constant", value=0.0)
-        else:
-            x = x_full
-        return model(x)
-
-    # K positions régulièrement espacées
-    starts = torch.linspace(0, T_full - target_T, K, device=device).long()
-
-    logits_sum = 0.0
-    for s in starts:
-        crop = x_full[..., s:s+target_T]        # [B,1,128,target_T]
-        logits_sum = logits_sum + model(crop)  # [B,n_classes]
-
-    return logits_sum / K
 
 
 @torch.no_grad()
-def eval_loss_acc_multicrop(model, loader, loss_fn, device, target_T=128, K=5):
+def eval_acc_multicrop_majority(model, loader, device, target_T=128, K=10):
+
     model.eval()
-    total_loss, ok, total = 0.0, 0, 0
+    correct, total = 0, 0
 
     for x, y in loader:
         x, y = x.to(device), y.to(device)
+        B, C, Freq, T_full = x.shape
 
-        logits = multicrop_logits(model, x, target_T=target_T, K=K)
-        loss = loss_fn(logits, y)
+        # Cas où le signal est plus court que target_T : on pad et on fait une seule prédiction
+        if T_full <= target_T:
+            pad = target_T - T_full
+            if pad > 0:
+                x_pad = F.pad(x, (0, pad), mode="constant", value=0.0)
+            else:
+                x_pad = x
+            logits = model(x_pad)              # [B, n_classes]
+            preds = logits.argmax(1)           # [B]
+        else:
+            # T_full > target_T : K crops régulièrement espacés
+            starts = torch.linspace(0, T_full - target_T, K, device=x.device).long()
 
-        total_loss += loss.item() * x.size(0)
-        pred = logits.argmax(1)
-        ok += (pred == y).sum().item()
-        total += x.size(0)
+            all_preds = []
+            for s in starts:
+                crop = x[..., s:s+target_T]    # [B, 1, 128, target_T]
+                logits = model(crop)           # [B, n_classes]
+                pred = logits.argmax(1)        # [B]
+                all_preds.append(pred)
 
-    return total_loss / total, ok / total
+            # all_preds : liste de K tensors [B] -> [K, B] -> [B, K]
+            all_preds = torch.stack(all_preds, dim=0).transpose(0, 1)  # [B, K]
+
+            # majority vote sur la dimension K
+            preds = torch.mode(all_preds, dim=1).values                # [B]
+
+        correct += (preds == y).sum().item()
+        total += y.size(0)
+
+    return correct / total
 
 
 
 if __name__ == '__main__':
-    ROOT = Path(__file__).resolve().parents[2]
+    ROOT = Path(__file__).resolve().parents[1]
     mels_root = str(ROOT / "data" / "mels128")
     metadata_root = str(ROOT / "data" / "fma_metadata")
 
@@ -110,10 +103,16 @@ if __name__ == '__main__':
 
     model = MODEL_PARAMS.get(config_run.model_type, SmallCNN)(test_ds.n_classes)
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    model_path = str(Path(__file__).resolve().parents[0] / config_run.name)
+    model_path = str(Path(__file__).resolve().parents[0] / "weight" / config_run.name)
     model.load_state_dict(torch.load(model_path))
-    test_loss, test_acc = eval_loss_acc_multicrop(
-        model, test_loader, torch.nn.CrossEntropyLoss(), device,
-        target_T=config_run.target_T, K=5
-    )
+    if args.vote:
+        test_acc = eval_acc_multicrop_majority(
+            model, test_loader, device,
+            target_T=config_run.target_T, K=10
+        )
+    else:
+        print('No vote classic evaluation')
+        test_loss, test_acc = eval_loss_acc(
+            model, test_loader, torch.nn.CrossEntropyLoss(), device,
+        )
     print("FINAL test accuracy:", test_acc)

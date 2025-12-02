@@ -1,7 +1,6 @@
 import torch.nn as nn
 import torch
 
-from src.tools.CNNs.RCNN_V2 import CRNNv2
 
 
 class SmallCNN(nn.Module):
@@ -26,41 +25,6 @@ class SmallCNN(nn.Module):
 
     def forward(self, x):
         x = self.net(x).squeeze(-1).squeeze(-1)  # [B,128]
-        return self.fc(x)
-
-class SmallCNN_TimePool(nn.Module):
-    def __init__(self, n_classes):
-        super().__init__()
-        self.feat = nn.Sequential(
-            nn.Conv2d(1, 16, 3, padding=1, bias=False),
-            nn.BatchNorm2d(16), nn.ReLU(),
-            nn.MaxPool2d(2), nn.Dropout(0.2),
-
-            nn.Conv2d(16, 32, 3, padding=1, bias=False),
-            nn.BatchNorm2d(32), nn.ReLU(),
-            nn.MaxPool2d(2), nn.Dropout(0.2),
-
-            nn.Conv2d(32, 64, 3, padding=1, bias=False),
-            nn.BatchNorm2d(64), nn.ReLU(),
-            nn.MaxPool2d(2), nn.Dropout(0.3),
-
-            nn.Conv2d(64, 128, 3, padding=1, bias=False),
-            nn.BatchNorm2d(128), nn.ReLU(),
-            nn.MaxPool2d(2), nn.Dropout(0.3),
-        )
-        self.fc = nn.Sequential(
-            nn.Dropout(0.5),
-            nn.Linear(256, 256), nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(256, n_classes)
-        )
-
-    def forward(self, x):
-        x = self.feat(x)          # [B,C,F',T']
-        x = x.mean(dim=2)         # avg sur freq -> [B,C,T']
-        x_mean = x.mean(dim=-1)   # [B,C]
-        x_max  = x.max(dim=-1).values
-        x = torch.cat([x_mean, x_max], dim=1)  # [B,2C]=[B,256]
         return self.fc(x)
 
 class AttnPool(nn.Module):
@@ -201,5 +165,118 @@ class CRNN(nn.Module):
         return self.fc(pooled)
 
 
+class CRNN_V2(nn.Module):
+    """
+    Input: x [B, 1, 128, T] with T <= 256 (mel bins=128)
+    Output: logits [B, n_classes]
+    """
+    def __init__(
+        self,
+        n_classes: int,
+        rnn_hidden: int = 160,
+        rnn_layers: int = 2,
+        proj_dim: int = 256,
+        time_mask: int = 32,
+        freq_mask: int = 16,
+        spec_p: float = 0.7,
+    ):
+        super().__init__()
 
-MODEL_PARAMS = {"SmallCNN": SmallCNN, "CRNN": CRNN, "CRNNv2": CRNNv2}
+        self.time_mask = time_mask
+        self.freq_mask = freq_mask
+        self.spec_p = spec_p
+
+        # CNN front-end
+        self.cnn = nn.Sequential(
+            # [B,1,128,T]
+            nn.Conv2d(1, 32, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(32),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d((2, 2)),       # -> [B,32,64,T/2]
+            nn.Dropout(0.1),
+
+            nn.Conv2d(32, 64, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d((2, 2)),       # -> [B,64,32,T/4]
+            nn.Dropout(0.15),
+
+            nn.Conv2d(64, 128, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d((2, 1)),       # -> [B,128,16,T/4]
+            nn.Dropout(0.2),
+
+            nn.Conv2d(128, 160, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(160),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d((2, 1)),       # -> [B,160,8,T/4]
+            nn.Dropout(0.25),
+        )
+
+        # After CNN: freq=8, channels=160 => feature size per time step = 160*8=1280
+        self.cnn_out_channels = 160
+        self.cnn_out_freq = 8
+        self.rnn_in = self.cnn_out_channels * self.cnn_out_freq  # 1280
+
+        # Projection before GRU
+        self.proj = nn.Sequential(
+            nn.LayerNorm(self.rnn_in),
+            nn.Linear(self.rnn_in, proj_dim),
+            nn.ReLU(inplace=True),
+        )
+
+        # BiGRU backend
+        self.rnn = nn.GRU(
+            input_size=proj_dim,
+            hidden_size=rnn_hidden,
+            num_layers=rnn_layers,
+            batch_first=True,
+            bidirectional=True,
+            dropout=0.2 if rnn_layers > 1 else 0.0,
+        )
+
+        # MLP Attention over time
+        self.attn = nn.Sequential(
+            nn.Linear(2 * rnn_hidden, 128),
+            nn.Tanh(),
+            nn.Linear(128, 1),
+        )
+
+        # Classifier
+        self.fc = nn.Sequential(
+            nn.Dropout(0.4),
+            nn.Linear(2 * rnn_hidden, n_classes),
+        )
+
+    def forward(self, x):
+        # x: [B,1,128,T]
+        if self.training and self.spec_p > 0.0:
+            x = spec_augment(
+                x,
+                time_mask=self.time_mask,
+                freq_mask=self.freq_mask,
+                p=self.spec_p,
+            )
+
+        x = self.cnn(x)  # [B,C,F,T']
+        B, C, Freq, Tp = x.shape
+
+        # flatten freq+channels, keep time: [B,T',C*F]
+        x = x.permute(0, 3, 1, 2).contiguous()   # [B,T',C,F]
+        x = x.view(B, Tp, C * Freq)              # [B,T',1280]
+
+        # projection
+        x = self.proj(x)                         # [B,T',proj_dim]
+
+        # BiGRU
+        out, _ = self.rnn(x)                     # [B,T',2*H]
+
+        # Attention pooling over time
+        a = torch.softmax(self.attn(out), dim=1) # [B,T',1]
+        pooled = (out * a).sum(dim=1)            # [B,2*H]
+
+        return self.fc(pooled)                   # [B,n_classes]
+
+
+MODEL_PARAMS = {"SmallCNN": SmallCNN, "CRNN": CRNN, "CRNN_V2": CRNN_V2}

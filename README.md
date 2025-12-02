@@ -37,25 +37,42 @@ python3 -m src.tools.precompute_mels
 ## How to reproduce 
 The baseline we propose to beat is exposed in the folder baseline, it uses the SmallCNN in [baseline_cnn.py](src/tools/CNNs/baseline_cnn.py)
 
-For the baseline we train using the script [train.py](src/baseline/train.py) to train : 
+For the baseline we train using the script [train.py](src/train.py) to train : 
 
 ```bash
-python -m src.baseline.train 
+python -m src.train --run_from "src/runs_configs/baseline.json" --baseline true
 ```
 
 and to see training logs : 
 
 ```bash
-tensorboard --logdir=./src/baseline/runs --port=6006 
+tensorboard --logdir=./src/runs --port=6006 
 ```
 Be careful, the training is super long especially if you don't have GPU like me ( it was 48 mins for the training) 
 
 To see the results, how the baseline perform you can run
 
 ```bash
-python -m src.baseline.eval_model
+ python -m src.eval_model --run_from "src/runs_configs/baseline.json" --baseline true
 ```
 ## Results
 
 The baseline has a 45.9375 % accuracy which is good but not great, let's try to improve it 
 
+## First idea 
+
+Instead of taking 
+
+Let's first reduce the images and take only a random crop of 128*128 pixels we keep the same CNN and still 20 epochs.
+
+You can reproduce the training using 
+
+```bash
+ python -m src.train --run_from "src/runs_configs/2025-11-24_22-16-23.json" 
+```
+
+Again to see the training data : 
+
+```bash
+tensorboard --logdir=./src/runs --port=6006 
+```

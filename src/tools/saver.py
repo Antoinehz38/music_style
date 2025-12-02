@@ -1,6 +1,3 @@
-from dataclasses import dataclass
-
-
 class RunSummary:
     def __init__(self, model_type:str|None = None, dataset_type:str|None = None, batch_size:int|None = None,
                  target_T: int|None = None, random_crop:bool|None = None, epoch:int|None = None,
