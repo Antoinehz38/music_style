@@ -1,0 +1,16 @@
+{
+  "model_type": "CRNN",
+  "dataset_type": "MelNpyDataset",
+  "batch_size": 32,
+  "target_T": 256,
+  "random_crop": true,
+  "epoch": 50,
+  "lr": 0.0003,
+  "optim_type": "AdamW",
+  "weight_decay": 0.0001,
+  "seed": 1234,
+  "use_augment": null,
+  "final_result": 0.621875,
+  "name": "best_model_2025-12-02_22-24-39.pt",
+  "val_training": false
+}

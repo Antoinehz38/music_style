@@ -42,7 +42,7 @@ def train(
     log_dir="./runs",
 ):
     model.to(device)
-    if config_run.weight_decay:
+    if run_config.weight_decay:
         opt = OPTIM_PARAMS.get(run_config.optim_type, AdamW)(model.parameters(), lr=run_config.lr,
                                                          weight_decay=run_config.weight_decay)
     else:
@@ -50,7 +50,7 @@ def train(
 
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         opt,
-        T_max=config_run.epoch
+        T_max=run_config.epoch
     )
     loss_fn = torch.nn.CrossEntropyLoss()
     writer = SummaryWriter(log_dir=log_dir)
@@ -58,7 +58,7 @@ def train(
     best_val_acc = 0.0
     global_step = 0
 
-    for ep in range(1, config_run.epoch + 1):
+    for ep in range(1, run_config.epoch + 1):
         model.train()
         epoch_loss = 0.0
         nbatches = 0
@@ -101,7 +101,7 @@ def train(
             print(f"saved best model at epoch {ep}")
 
         scheduler.step()
-    torch.save(model.state_dict(), "src/weight/" + config_run.name)
+    torch.save(model.state_dict(), "src/weight/" + run_config.name)
     writer.close()
 
 
@@ -114,8 +114,8 @@ if __name__ == "__main__":
     args = parse_args()
     print('baseline = ', args.baseline)
     if args.run_from == "new_conf":
-        config_run = RunSummary(random_crop=True, model_type="CRNN", dataset_type="MelNpyDataset",optim_type="AdamW",
-                                target_T=256, seed=seed, batch_size=32, lr=0.0003, weight_decay=0.0001, epoch=50, val_training=False)
+        config_run = RunSummary(random_crop=True, model_type="CRNN", dataset_type="NewMelNpyDataset",optim_type="AdamW",
+                                target_T=256, seed=seed, batch_size=32, lr=0.0001, weight_decay=0.0001, epoch=50, val_training=False)
     else:
         config_run = RunSummary()
         with open(args.run_from, "r", encoding="utf-8") as f:
@@ -133,9 +133,9 @@ if __name__ == "__main__":
 
     train_ds = Dataset(mels_root, metadata_root, split=split_train,
                              target_T=config_run.target_T, random_crop=config_run.random_crop)
-    val_ds   = Dataset(mels_root, metadata_root, split="validation",
+    val_ds   = MelNpyDataset(mels_root, metadata_root, split="validation",
                              target_T=config_run.target_T, random_crop=config_run.random_crop)
-    test_ds  = Dataset(mels_root, metadata_root, split="test",
+    test_ds  = MelNpyDataset(mels_root, metadata_root, split="test",
                              target_T=1292, random_crop=config_run.random_crop)
 
     num_worker = min(os.cpu_count(), 12)
