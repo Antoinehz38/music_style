@@ -173,12 +173,12 @@ class CRNN_V2(nn.Module):
     def __init__(
         self,
         n_classes: int,
-        rnn_hidden: int = 192,
-        rnn_layers: int = 1,
+        rnn_hidden: int = 160,
+        rnn_layers: int = 2,
         proj_dim: int = 256,
-        time_mask: int = 24,
-        freq_mask: int = 12,
-        spec_p: float = 0.5,
+        time_mask: int = 32,
+        freq_mask: int = 16,
+        spec_p: float = 0.7,
     ):
         super().__init__()
 
@@ -187,33 +187,31 @@ class CRNN_V2(nn.Module):
         self.spec_p = spec_p
 
         # CNN front-end
-        # CNN
         self.cnn = nn.Sequential(
-            nn.Conv2d(1, 32, 3, padding=1, bias=False),
-            nn.BatchNorm2d(32), nn.ReLU(inplace=True),
-            nn.MaxPool2d((2, 2)),
-            nn.Dropout(0.10),  # ok
+            # [B,1,128,T]
+            nn.Conv2d(1, 32, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(32),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d((2, 2)),       # -> [B,32,64,T/2]
+            nn.Dropout(0.1),
 
-            nn.Conv2d(32, 64, 3, padding=1, bias=False),
-            nn.BatchNorm2d(64), nn.ReLU(inplace=True),
-            nn.MaxPool2d((2, 2)),
-            nn.Dropout(0.10),  # 0.15 -> 0.10
+            nn.Conv2d(32, 64, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d((2, 2)),       # -> [B,64,32,T/4]
+            nn.Dropout(0.15),
 
-            nn.Conv2d(64, 128, 3, padding=1, bias=False),
-            nn.BatchNorm2d(128), nn.ReLU(inplace=True),
-            nn.MaxPool2d((2, 1)),
-            nn.Dropout(0.15),  # 0.20 -> 0.15
+            nn.Conv2d(64, 128, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d((2, 1)),       # -> [B,128,16,T/4]
+            nn.Dropout(0.2),
 
-            nn.Conv2d(128, 160, 3, padding=1, bias=False),
-            nn.BatchNorm2d(160), nn.ReLU(inplace=True),
-            nn.MaxPool2d((2, 1)),
-            nn.Dropout(0.20),  # 0.25 -> 0.20
-        )
-
-        # FC
-        self.fc = nn.Sequential(
-            nn.Dropout(0.30),  # 0.4 -> 0.3
-            nn.Linear(2 * rnn_hidden, n_classes),
+            nn.Conv2d(128, 160, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(160),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d((2, 1)),       # -> [B,160,8,T/4]
+            nn.Dropout(0.25),
         )
 
         # After CNN: freq=8, channels=160 => feature size per time step = 160*8=1280
@@ -235,7 +233,7 @@ class CRNN_V2(nn.Module):
             num_layers=rnn_layers,
             batch_first=True,
             bidirectional=True,
-            dropout=0.0,  # obligatoire si 1 couche
+            dropout=0.2 if rnn_layers > 1 else 0.0,
         )
 
         # MLP Attention over time
