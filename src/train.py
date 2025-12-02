@@ -124,9 +124,14 @@ if __name__ == "__main__":
 
     config_run.name = f"best_model_{now}.pt"
 
+    if config_run.val_training:
+        split_train = "trainval"
+    else:
+        split_train = "training"
+
     Dataset = DATASET_PARAMS.get(config_run.dataset_type, MelNpyDataset)
 
-    train_ds = Dataset(mels_root, metadata_root, split="training",
+    train_ds = Dataset(mels_root, metadata_root, split=split_train,
                              target_T=config_run.target_T, random_crop=config_run.random_crop)
     val_ds   = Dataset(mels_root, metadata_root, split="validation",
                              target_T=config_run.target_T, random_crop=config_run.random_crop)
@@ -148,10 +153,6 @@ if __name__ == "__main__":
     train(model, train_loader, val_loader, run_config=config_run, device=device,
           log_dir=str(Path(__file__).resolve().parents[0] / "./runs"))
 
-    if config_run.val_training:
-        print('Second training using val data')
-        train(model, val_loader, val_loader, run_config=config_run, device=device,
-              log_dir=str(Path(__file__).resolve().parents[0] / "./runs"))
 
     model.load_state_dict(torch.load("src/weight/" + config_run.name))
 

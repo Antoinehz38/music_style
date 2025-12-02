@@ -6,11 +6,24 @@ from torch.utils.data import Dataset
 
 class MelNpyDataset(Dataset):
     def __init__(self, mels_root, metadata_root, split="training", target_T=1292, random_crop:bool = False):
-        tracks = pd.read_csv(os.path.join(metadata_root, "tracks.csv"), header=[0,1], index_col=0)
+        tracks = pd.read_csv(
+            os.path.join(metadata_root, "tracks.csv"),
+            header=[0, 1],
+            index_col=0
+        )
 
-        subset = tracks[("set", "subset")] == "small"
-        split_mask = tracks[("set", "split")] == split
-        df = tracks[subset & split_mask]
+        subset_mask = tracks[("set", "subset")] == "small"
+
+        # gérer plusieurs splits
+        if split == "trainval":
+            split_values = ["training", "validation"]
+        elif isinstance(split, (list, tuple, set)):
+            split_values = list(split)
+        else:
+            split_values = [split]
+
+        split_mask = tracks[("set", "split")].isin(split_values)
+        df = tracks[subset_mask & split_mask]
 
         self.track_ids = df.index.tolist()
         self.files = [os.path.join(mels_root, f"{tid}.npy") for tid in self.track_ids]
