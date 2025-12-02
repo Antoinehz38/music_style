@@ -123,7 +123,6 @@ if __name__ == "__main__":
         config_run.load_data(data)
 
     config_run.name = f"best_model_{now}.pt"
-    print(config_run.to_dict())
 
     train_ds = MelNpyDataset(mels_root, metadata_root, split="training",
                              target_T=config_run.target_T, random_crop=config_run.random_crop)
@@ -142,7 +141,7 @@ if __name__ == "__main__":
 
     model = MODEL_PARAMS.get(config_run.model_type, SmallCNN)(train_ds.n_classes)
     device = "cuda" if torch.cuda.is_available() else "cpu"
-
+    print(config_run.to_dict())
     train(model, train_loader, val_loader, run_config=config_run, device=device,
           log_dir=str(Path(__file__).resolve().parents[0] / "./runs"))
 
