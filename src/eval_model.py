@@ -93,7 +93,7 @@ if __name__ == '__main__':
         with open(args.run_from, "r", encoding="utf-8") as f:
             data = json.load(f)
         config_run.load_data(data)
-
+    print(f'config = {config_run.to_dict()}')
     g_test = torch.Generator().manual_seed(config_run.seed)
     test_ds  = MelNpyDataset(mels_root, metadata_root, split="test",
                              target_T=1292, random_crop=config_run.random_crop)
