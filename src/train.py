@@ -12,7 +12,7 @@ from torch.utils.tensorboard import SummaryWriter
 from time import time
 from pathlib import Path
 
-from src.tools.mels_dataset import MelNpyDataset
+from src.tools.mels_dataset import DATASET_PARAMS, MelNpyDataset
 from src.tools.CNNs import MODEL_PARAMS, SmallCNN
 from src.tools.parse_args import parse_args
 from src.tools.saver import RunSummary
@@ -114,8 +114,8 @@ if __name__ == "__main__":
     args = parse_args()
     print('baseline = ', args.baseline)
     if args.run_from == "new_conf":
-        config_run = RunSummary(random_crop=True, model_type="CRNN_V2", dataset_type="MelNpyDataset",optim_type="AdamW",
-                                target_T=256, seed=seed, batch_size=32, lr=0.0002, weight_decay=0.0001, epoch=35)
+        config_run = RunSummary(random_crop=True, model_type="CRNN", dataset_type="NewMelNpyDataset",optim_type="AdamW",
+                                target_T=256, seed=seed, batch_size=32, lr=0.0003, weight_decay=0.0001, epoch=35)
     else:
         config_run = RunSummary()
         with open(args.run_from, "r", encoding="utf-8") as f:
@@ -124,11 +124,13 @@ if __name__ == "__main__":
 
     config_run.name = f"best_model_{now}.pt"
 
-    train_ds = MelNpyDataset(mels_root, metadata_root, split="training",
+    Dataset = DATASET_PARAMS.get(config_run.dataset_type, MelNpyDataset)
+
+    train_ds = Dataset(mels_root, metadata_root, split="training",
                              target_T=config_run.target_T, random_crop=config_run.random_crop)
-    val_ds   = MelNpyDataset(mels_root, metadata_root, split="validation",
+    val_ds   = Dataset(mels_root, metadata_root, split="validation",
                              target_T=config_run.target_T, random_crop=config_run.random_crop)
-    test_ds  = MelNpyDataset(mels_root, metadata_root, split="test",
+    test_ds  = Dataset(mels_root, metadata_root, split="test",
                              target_T=1292, random_crop=config_run.random_crop)
 
     num_worker = min(os.cpu_count(), 12)
@@ -141,6 +143,7 @@ if __name__ == "__main__":
 
     model = MODEL_PARAMS.get(config_run.model_type, SmallCNN)(train_ds.n_classes)
     device = "cuda" if torch.cuda.is_available() else "cpu"
+
     print(config_run.to_dict())
     train(model, train_loader, val_loader, run_config=config_run, device=device,
           log_dir=str(Path(__file__).resolve().parents[0] / "./runs"))
