@@ -117,8 +117,8 @@ if __name__ == "__main__":
     args = parse_args()
     print('baseline = ', args.baseline)
     if args.run_from == "new_conf":
-        config_run = RunSummary(random_crop=True, model_type="SmallCNN", dataset_type="MelNpyDataset",optim_type="Adam",
-                                target_T=1292, seed=seed, batch_size=32, lr=0.001, weight_decay=None, epoch=20, val_training=False)
+        config_run = RunSummary(random_crop=True, model_type="CRNN", dataset_type="MelNpyDataset",optim_type="AdamW",
+                                target_T=1292, seed=seed, batch_size=32, lr=0.0003, weight_decay=0.0001, epoch=35, val_training=False)
     else:
         config_run = RunSummary()
         with open(args.run_from, "r", encoding="utf-8") as f:
