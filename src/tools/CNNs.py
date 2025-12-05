@@ -1,7 +1,31 @@
 import torch.nn as nn
 import torch
 
+def spec_augment(x, time_mask=24, freq_mask=12, p=0.5):
+    """
+    x: [B,1,128,T]
+    Apply random time/freq masking on-the-fly.
+    """
+    if not x.requires_grad:  # allow use under no_grad too
+        x = x.clone()
 
+    B, _, F, T = x.shape
+    if torch.rand(1).item() > p:
+        return x
+
+    # freq mask
+    f = torch.randint(0, freq_mask + 1, (1,)).item()
+    if f > 0:
+        f0 = torch.randint(0, max(1, F - f), (1,)).item()
+        x[:, :, f0:f0 + f, :] = 0.0
+
+    # time mask
+    t = torch.randint(0, time_mask + 1, (1,)).item()
+    if t > 0:
+        t0 = torch.randint(0, max(1, T - t), (1,)).item()
+        x[:, :, :, t0:t0 + t] = 0.0
+
+    return x
 
 class SmallCNN(nn.Module):
     def __init__(self, n_classes, augment:bool = False):
@@ -29,6 +53,61 @@ class SmallCNN(nn.Module):
             x = spec_augment(x, time_mask=32, freq_mask=16, p=1.0)
         x = self.net(x).squeeze(-1).squeeze(-1)  # [B,128]
         return self.fc(x)
+
+class SmallCRNN(nn.Module):
+    def __init__(self, n_classes, hidden_size=128, n_layers=1, augment: bool = False):
+        super().__init__()
+        self.augment = augment
+
+        # même bloc conv que ton SmallCNN
+        self.cnn = nn.Sequential(
+            nn.Conv2d(1, 16, 3, padding=1), nn.ReLU(),
+            nn.MaxPool2d(2), nn.Dropout(0.2),
+
+            nn.Conv2d(16, 32, 3, padding=1), nn.ReLU(),
+            nn.MaxPool2d(2), nn.Dropout(0.2),
+
+            nn.Conv2d(32, 64, 3, padding=1), nn.ReLU(),
+            nn.MaxPool2d(2), nn.Dropout(0.3),
+
+            nn.Conv2d(64, 128, 3, padding=1), nn.ReLU(),
+            nn.MaxPool2d(2), nn.Dropout(0.3),
+        )
+
+        # RNN sur la dimension temps
+        # input_size = 128 * freq_out (freq_out ≈ 128 / 16 = 8)
+        self.freq_out = 128 // 16  # si ton F=128 est fixe
+        self.rnn_input_size = 128 * self.freq_out
+
+        self.rnn = nn.GRU(
+            input_size=self.rnn_input_size,
+            hidden_size=hidden_size,
+            num_layers=n_layers,
+            batch_first=True,
+            bidirectional=True,
+        )
+
+        self.fc = nn.Linear(2 * hidden_size, n_classes)
+
+    def forward(self, x):
+        # x: [B,1,128,T]
+        if self.augment:
+            x = spec_augment(x, time_mask=32, freq_mask=16, p=0.5)  # évite p=1.0
+
+        x = self.cnn(x)  # [B, 128, F_out, T_out]
+        B, C, F, T = x.shape
+
+        # -> [B, T, C*F]
+        x = x.permute(0, 3, 1, 2).contiguous()  # [B, T, C, F]
+        x = x.view(B, T, C * F)                # [B, T, C*F]
+
+        out, _ = self.rnn(x)                   # [B, T, 2*hidden]
+        # pooling temporel: moyenne sur T
+        out = out.mean(dim=1)                  # [B, 2*hidden]
+
+        logits = self.fc(out)
+        return logits
+
 
 class AttnPool(nn.Module):
     def __init__(self, C):
@@ -72,31 +151,7 @@ class AttentionCNN(nn.Module):
         x = self.pool(x)  # [B,128]
         return self.fc(x)
 
-def spec_augment(x, time_mask=24, freq_mask=12, p=0.5):
-    """
-    x: [B,1,128,T]
-    Apply random time/freq masking on-the-fly.
-    """
-    if not x.requires_grad:  # allow use under no_grad too
-        x = x.clone()
 
-    B, _, F, T = x.shape
-    if torch.rand(1).item() > p:
-        return x
-
-    # freq mask
-    f = torch.randint(0, freq_mask + 1, (1,)).item()
-    if f > 0:
-        f0 = torch.randint(0, max(1, F - f), (1,)).item()
-        x[:, :, f0:f0 + f, :] = 0.0
-
-    # time mask
-    t = torch.randint(0, time_mask + 1, (1,)).item()
-    if t > 0:
-        t0 = torch.randint(0, max(1, T - t), (1,)).item()
-        x[:, :, :, t0:t0 + t] = 0.0
-
-    return x
 
 class CRNN(nn.Module):
     """
@@ -169,4 +224,4 @@ class CRNN(nn.Module):
 
 
 
-MODEL_PARAMS = {"SmallCNN": SmallCNN, "CRNN": CRNN}
+MODEL_PARAMS = {"SmallCNN": SmallCNN, "CRNN": CRNN, "SmallCRNN": SmallCRNN}
