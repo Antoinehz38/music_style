@@ -16,6 +16,7 @@ def parse_args():
     p.add_argument("--epoch", type=int, default=20)
     p.add_argument("--val_training", type=bool, default=False)
     p.add_argument("--scheduler", type=bool,default=False)
+    p.add_argument("--use_augment", type=bool, default=False)
 
 
     p.add_argument("--vote", dest="vote", action="store_true")

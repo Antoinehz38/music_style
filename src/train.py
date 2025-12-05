@@ -120,7 +120,7 @@ if __name__ == "__main__":
         config_run = RunSummary(random_crop=args.random_crop, model_type=args.model_type, dataset_type=args.dataset_type,
                                 optim_type=args.optim_type,target_T=args.target_T, seed=seed, batch_size=args.batch_size,
                                 lr=args.lr, weight_decay=args.weight_decay, epoch=args.epoch, val_training=args.val_training,
-                                scheduler = args.scheduler)
+                                scheduler = args.scheduler, use_augment=args.use_augment)
     else:
         config_run = RunSummary()
         with open(args.run_from, "r", encoding="utf-8") as f:
@@ -151,7 +151,7 @@ if __name__ == "__main__":
     test_loader  = DataLoader(test_ds, batch_size=config_run.batch_size, shuffle=False, num_workers=num_worker,
                               worker_init_fn=seed_worker,generator=g_test,persistent_workers=True)
 
-    model = MODEL_PARAMS.get(config_run.model_type, SmallCNN)(train_ds.n_classes)
+    model = MODEL_PARAMS.get(config_run.model_type, SmallCNN)(train_ds.n_classes, augment=config_run.use_augment)
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     print(config_run.to_dict())
