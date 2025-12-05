@@ -44,21 +44,30 @@ def train(
     global args
     model.to(device)
     if config_run.weight_decay:
-        opt = OPTIM_PARAMS.get(config_run.optim_type, AdamW)(model.parameters(), lr=config_run.lr,
+        opt = OPTIM_PARAMS.get(config_run.optim_type, AdamW)(model.parameters(),
+                                                             lr=config_run.lr,
                                                              weight_decay=config_run.weight_decay)
     else:
-        opt = OPTIM_PARAMS.get(config_run.optim_type, AdamW)(model.parameters(), lr=config_run.lr)
+        opt = OPTIM_PARAMS.get(config_run.optim_type, AdamW)(model.parameters(),
+                                                             lr=config_run.lr)
 
     if not config_run.scheduler:
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             opt,
             T_max=config_run.epoch
         )
+
     loss_fn = torch.nn.CrossEntropyLoss()
     writer = SummaryWriter(log_dir=log_dir)
 
+    best_val_loss = float("inf")
     best_val_acc = 0.0
     global_step = 0
+
+
+    patience = int(config_run.epoch *0.2)
+    epochs_no_improve = 0
+    min_delta = 0.0
 
     for ep in range(1, config_run.epoch + 1):
         model.train()
@@ -73,7 +82,6 @@ def train(
             logits = model(x)
             loss = loss_fn(logits, y)
             loss.backward()
-            #torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             opt.step()
 
             writer.add_scalar("train/batch_loss", loss.item(), global_step)
@@ -96,16 +104,29 @@ def train(
             f"| {dt:.1f}s"
         )
 
-        if val_acc > best_val_acc:
+        if val_loss < best_val_loss - min_delta:
+            best_val_loss = val_loss
             best_val_acc = val_acc
+            epochs_no_improve = 0
             model_path = "src/weight/best_model.pt"
             torch.save(model.state_dict(), model_path)
             print(f"saved best model at epoch {ep}")
+        else:
+            epochs_no_improve += 1
+            print(f"no improvement for {epochs_no_improve} epoch(s)")
 
+        # scheduler
         if not config_run.scheduler:
             scheduler.step()
+
+        # early stopping
+        if epochs_no_improve >= patience:
+            print(f"Early stopping at epoch {ep}")
+            break
+
     torch.save(model.state_dict(), "src/weight/" + config_run.name)
     writer.close()
+
 
 
 if __name__ == "__main__":
