@@ -109,22 +109,22 @@ class CRNN(nn.Module):
             nn.Conv2d(1, 32, 3, padding=1, bias=False),
             nn.BatchNorm2d(32), nn.ReLU(inplace=True),
             nn.MaxPool2d((2, 2)),          # -> [B,32,64,T/2]
-            nn.Dropout(0.1),
+            nn.Dropout(0.2),
 
             nn.Conv2d(32, 64, 3, padding=1, bias=False),
             nn.BatchNorm2d(64), nn.ReLU(inplace=True),
             nn.MaxPool2d((2, 2)),          # -> [B,64,32,T/4]
-            nn.Dropout(0.15),
+            nn.Dropout(0.2),
 
             nn.Conv2d(64, 128, 3, padding=1, bias=False),
             nn.BatchNorm2d(128), nn.ReLU(inplace=True),
             nn.MaxPool2d((2, 1)),          # freq /2 only -> [B,128,16,T/4]
-            nn.Dropout(0.2),
+            nn.Dropout(0.3),
 
             nn.Conv2d(128, 128, 3, padding=1, bias=False),
             nn.BatchNorm2d(128), nn.ReLU(inplace=True),
             nn.MaxPool2d((2, 1)),          # -> [B,128,8,T/4]
-            nn.Dropout(0.25),
+            nn.Dropout(0.3),
         )
 
         # After CNN: freq=8, channels=128 => feature size per time step = 128*8=1024

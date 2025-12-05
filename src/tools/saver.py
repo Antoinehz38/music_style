@@ -2,7 +2,8 @@ class RunSummary:
     def __init__(self, model_type:str|None = None, dataset_type:str|None = None, batch_size:int|None = None,
                  target_T: int|None = None, random_crop:bool|None = None, epoch:int|None = None,
                  lr:float|None = None, optim_type:str|None = None, weight_decay:float|None = None,
-                 seed:int|None = None, use_augment:bool|None=None, val_training:bool|None = None):
+                 seed:int|None = None, use_augment:bool|None=None, val_training:bool|None = None,
+                 scheduler:bool=False):
         self.model_type = model_type
         self.dataset_type = dataset_type
         self.batch_size = batch_size
@@ -17,6 +18,7 @@ class RunSummary:
         self.use_augment = use_augment
         self.name = None
         self.val_training=val_training
+        self.scheduler=scheduler
 
     def to_dict(self) -> dict:
         return {
@@ -33,7 +35,8 @@ class RunSummary:
             "use_augment":self.use_augment,
             "final_result": self.test_results,
             "name": self.name,
-            "val_training":self.val_training
+            "val_training":self.val_training,
+            "scheduler":self.scheduler
         }
 
     def load_data(self, data:dict):
@@ -50,6 +53,7 @@ class RunSummary:
         self.use_augment = data.get("use_augment", False)
         self.name = data.get("name", "best_model.pt")
         self.val_training = data.get("val_training", False)
+        self.scheduler = data.get("scheduler", True)
 
         if "RCNN" in self.model_type:
             self.use_augment = True

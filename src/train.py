@@ -37,22 +37,22 @@ def train(
     model,
     train_loader,
     val_loader,
-    run_config:RunSummary,
+    config_run:RunSummary,
     device="cpu",
     log_dir="./runs",
 ):
     global args
     model.to(device)
-    if run_config.weight_decay:
-        opt = OPTIM_PARAMS.get(run_config.optim_type, AdamW)(model.parameters(), lr=run_config.lr,
-                                                         weight_decay=run_config.weight_decay)
+    if config_run.weight_decay:
+        opt = OPTIM_PARAMS.get(config_run.optim_type, AdamW)(model.parameters(), lr=config_run.lr,
+                                                             weight_decay=config_run.weight_decay)
     else:
-        opt = OPTIM_PARAMS.get(run_config.optim_type, AdamW)(model.parameters(), lr=run_config.lr)
+        opt = OPTIM_PARAMS.get(config_run.optim_type, AdamW)(model.parameters(), lr=config_run.lr)
 
-    if not args.baseline:
+    if not config_run.scheduler:
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             opt,
-            T_max=run_config.epoch
+            T_max=config_run.epoch
         )
     loss_fn = torch.nn.CrossEntropyLoss()
     writer = SummaryWriter(log_dir=log_dir)
@@ -60,7 +60,7 @@ def train(
     best_val_acc = 0.0
     global_step = 0
 
-    for ep in range(1, run_config.epoch + 1):
+    for ep in range(1, config_run.epoch + 1):
         model.train()
         epoch_loss = 0.0
         nbatches = 0
@@ -102,9 +102,9 @@ def train(
             torch.save(model.state_dict(), model_path)
             print(f"saved best model at epoch {ep}")
 
-        if not args.baseline:
+        if not config_run.scheduler:
             scheduler.step()
-    torch.save(model.state_dict(), "src/weight/" + run_config.name)
+    torch.save(model.state_dict(), "src/weight/" + config_run.name)
     writer.close()
 
 
@@ -117,8 +117,10 @@ if __name__ == "__main__":
     args = parse_args()
     print('baseline = ', args.baseline)
     if args.run_from == "new_conf":
-        config_run = RunSummary(random_crop=True, model_type="CRNN", dataset_type="MelNpyDataset",optim_type="AdamW",
-                                target_T=1292, seed=seed, batch_size=32, lr=0.0003, weight_decay=0.0001, epoch=35, val_training=False)
+        config_run = RunSummary(random_crop=args.random_crop, model_type=args.model_type, dataset_type=args.dataset_type,
+                                optim_type=args.optim_type,target_T=args.target_T, seed=seed, batch_size=args.batch_size,
+                                lr=args.lr, weight_decay=args.weight_decay, epoch=args.epoch, val_training=args.val_training,
+                                scheduler = args.scheduler)
     else:
         config_run = RunSummary()
         with open(args.run_from, "r", encoding="utf-8") as f:
@@ -153,7 +155,7 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     print(config_run.to_dict())
-    train(model, train_loader, val_loader, run_config=config_run, device=device,
+    train(model, train_loader, val_loader, config_run=config_run, device=device,
           log_dir=str(Path(__file__).resolve().parents[0] / "./runs"))
 
 
