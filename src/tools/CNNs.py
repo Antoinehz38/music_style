@@ -146,8 +146,8 @@ class CRNN(nn.Module):
 
     def forward(self, x):
         # x: [B,1,128,T]
-        if self.training:
-            x = spec_augment(x, time_mask=32, freq_mask=16, p=1.0)
+        # if self.training:
+        #     x = spec_augment(x, time_mask=32, freq_mask=16, p=1.0)
 
         x = self.cnn(x)                   # [B,C,F,T']
         B, C, Freq, Tp = x.shape
