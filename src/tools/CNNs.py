@@ -18,6 +18,8 @@ class SmallCNN(nn.Module):
 
             nn.Conv2d(64, 128, 3, padding=1), nn.ReLU(),
             nn.MaxPool2d(2), nn.Dropout(0.3),
+
+            nn.AdaptiveAvgPool2d((1,1))
         )
         self.fc = nn.Linear(128, n_classes)
 
