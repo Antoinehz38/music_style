@@ -6,6 +6,7 @@ import torch
 class SmallCNN(nn.Module):
     def __init__(self, n_classes, augment:bool = False):
         super().__init__()
+        self.augment = augment
         self.net = nn.Sequential(
             nn.Conv2d(1, 16, 3, padding=1), nn.ReLU(),
             nn.MaxPool2d(2), nn.Dropout(0.2),
@@ -24,6 +25,8 @@ class SmallCNN(nn.Module):
         self.fc = nn.Linear(128, n_classes)
 
     def forward(self, x):
+        if self.augment:
+            x = spec_augment(x, time_mask=32, freq_mask=16, p=1.0)
         x = self.net(x).squeeze(-1).squeeze(-1)  # [B,128]
         return self.fc(x)
 
