@@ -1,5 +1,6 @@
 import os, numpy as np, json
 import torch
+import shutil
 
 torch.set_num_threads(os.cpu_count())
 print('nombre de cpu : ', os.cpu_count())
@@ -185,8 +186,19 @@ if __name__ == "__main__":
     _, test_acc = eval_loss_acc(
         model, test_loader, loss_fn=torch.nn.CrossEntropyLoss(), device=device)
 
-    print("FINAL test accuracy:", test_acc)
-    config_run.test_results=test_acc
+    print("FINAL test accuracy last :", test_acc)
+
+    model.load_state_dict(torch.load("src/weight/best_model.pt"))
+
+    _, test_acc_best = eval_loss_acc(
+        model, test_loader, loss_fn=torch.nn.CrossEntropyLoss(), device=device)
+
+    print("FINAL test accuracy best :", test_acc_best)
+    if test_acc_best > test_acc:
+        shutil.copyfile("src/weight/best_model.pt","src/weight/" + config_run.name)
+        config_run.test_results=test_acc_best
+    else:
+        config_run.test_results = test_acc
 
     file_to_save = f"src/runs_configs/{now}.json"
 
