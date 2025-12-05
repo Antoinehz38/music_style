@@ -41,6 +41,7 @@ def train(
     device="cpu",
     log_dir="./runs",
 ):
+    global args
     model.to(device)
     if run_config.weight_decay:
         opt = OPTIM_PARAMS.get(run_config.optim_type, AdamW)(model.parameters(), lr=run_config.lr,
@@ -48,10 +49,11 @@ def train(
     else:
         opt = OPTIM_PARAMS.get(run_config.optim_type, AdamW)(model.parameters(), lr=run_config.lr)
 
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        opt,
-        T_max=run_config.epoch
-    )
+    if not args.baseline:
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            opt,
+            T_max=run_config.epoch
+        )
     loss_fn = torch.nn.CrossEntropyLoss()
     writer = SummaryWriter(log_dir=log_dir)
 
@@ -100,7 +102,8 @@ def train(
             torch.save(model.state_dict(), model_path)
             print(f"saved best model at epoch {ep}")
 
-        scheduler.step()
+        if not args.baseline:
+            scheduler.step()
     torch.save(model.state_dict(), "src/weight/" + run_config.name)
     writer.close()
 
@@ -156,10 +159,8 @@ if __name__ == "__main__":
 
     model.load_state_dict(torch.load("src/weight/" + config_run.name))
 
-    test_acc = eval_acc_multicrop_majority(
-        model, test_loader, device,
-        target_T=config_run.target_T, K=5
-    )
+    _, test_acc = eval_loss_acc(
+        model, test_loader, loss_fn=torch.nn.CrossEntropyLoss(), device=device)
 
     print("FINAL test accuracy:", test_acc)
     config_run.test_results=test_acc
