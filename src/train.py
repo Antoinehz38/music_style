@@ -107,11 +107,16 @@ def train(
 
         if val_loss < best_val_loss - min_delta:
             best_val_loss = val_loss
+            epochs_no_improve = 0
+            model_path = "src/weight/best_model_val_loss.pt"
+            torch.save(model.state_dict(), model_path)
+            print(f"saved best_val_loss model at epoch {ep}")
+        elif val_acc > best_val_acc:
             best_val_acc = val_acc
             epochs_no_improve = 0
-            model_path = "src/weight/best_model.pt"
+            model_path = "src/weight/best_model_val_acc.pt"
             torch.save(model.state_dict(), model_path)
-            print(f"saved best model at epoch {ep}")
+            print(f"saved best_val_acc model at epoch {ep}")
         else:
             epochs_no_improve += 1
             print(f"no improvement for {epochs_no_improve} epoch(s)")
@@ -182,23 +187,32 @@ if __name__ == "__main__":
 
 
     model.load_state_dict(torch.load("src/weight/" + config_run.name))
-
     _, test_acc = eval_loss_acc(
         model, test_loader, loss_fn=torch.nn.CrossEntropyLoss(), device=device)
-
     print("FINAL test accuracy last :", test_acc)
 
-    model.load_state_dict(torch.load("src/weight/best_model.pt"))
-
-    _, test_acc_best = eval_loss_acc(
+    model.load_state_dict(torch.load("src/weight/best_model_val_loss.pt"))
+    _, test_acc_best_val_loss = eval_loss_acc(
         model, test_loader, loss_fn=torch.nn.CrossEntropyLoss(), device=device)
+    print("FINAL test accuracy best val loss :", test_acc_best_val_loss)
 
-    print("FINAL test accuracy best :", test_acc_best)
-    if test_acc_best > test_acc:
-        shutil.copyfile("src/weight/best_model.pt","src/weight/" + config_run.name)
-        config_run.test_results=test_acc_best
+    model.load_state_dict(torch.load("src/weight/best_model_val_acc.pt"))
+    _, test_acc_best_val_acc = eval_loss_acc(
+        model, test_loader, loss_fn=torch.nn.CrossEntropyLoss(), device=device)
+    print("FINAL test accuracy best val acc:", test_acc_best_val_acc)
+
+    if test_acc_best_val_acc > test_acc_best_val_loss:
+        if test_acc_best_val_acc > test_acc:
+            shutil.copyfile("src/weight/best_model_val_acc.pt","src/weight/" + config_run.name)
+            config_run.test_results=test_acc_best_val_acc
+        else:
+            config_run.test_results = test_acc
     else:
-        config_run.test_results = test_acc
+        if test_acc_best_val_loss > test_acc:
+            shutil.copyfile("src/weight/best_model_val_loss.pt","src/weight/" + config_run.name)
+            config_run.test_results=test_acc_best_val_loss
+        else:
+            config_run.test_results = test_acc
 
     file_to_save = f"src/runs_configs/{now}.json"
 
