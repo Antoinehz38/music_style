@@ -55,3 +55,4 @@ class RunSummary:
         self.val_training = data.get("val_training", False)
         self.scheduler = data.get("scheduler", True)
         self.use_augment = data.get("use_augment", False)
+        self.test_results = data.get("final_result", 0)
