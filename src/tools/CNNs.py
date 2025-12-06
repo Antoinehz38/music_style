@@ -49,8 +49,8 @@ class SmallCNN(nn.Module):
         self.fc = nn.Linear(128, n_classes)
 
     def forward(self, x):
-        if self.augment:
-            x = spec_augment(x, time_mask=32, freq_mask=16, p=1.0)
+        if self.augment and self.training:
+            x = spec_augment(x, time_mask=32, freq_mask=16, p=0.5)
         x = self.net(x).squeeze(-1).squeeze(-1)  # [B,128]
         return self.fc(x)
 
@@ -91,8 +91,8 @@ class SmallCRNN(nn.Module):
 
     def forward(self, x):
         # x: [B,1,128,T]
-        if self.augment:
-            x = spec_augment(x, time_mask=32, freq_mask=16, p=0.5)  # évite p=1.0
+        if self.augment and self.training:
+            x = spec_augment(x, time_mask=32, freq_mask=16, p=0.5)
 
         x = self.cnn(x)  # [B, 128, F_out, T_out]
         B, C, F, T = x.shape
@@ -204,8 +204,8 @@ class CRNN(nn.Module):
 
     def forward(self, x):
         # x: [B,1,128,T]
-        if self.augment:
-            x = spec_augment(x, time_mask=32, freq_mask=16, p=1.0)
+        if self.augment and self.training:
+            x = spec_augment(x, time_mask=32, freq_mask=16, p=0.5)
 
         x = self.cnn(x)                   # [B,C,F,T']
         B, C, Freq, Tp = x.shape
