@@ -59,24 +59,23 @@ class SmallCRNN(nn.Module):
         super().__init__()
         self.augment = augment
 
-        # même bloc conv que ton SmallCNN
+        # CNN : je garde ta structure mais j'ajoute BatchNorm et je réduis un peu les dropout
         self.cnn = nn.Sequential(
-            nn.Conv2d(1, 16, 3, padding=1), nn.ReLU(),
-            nn.MaxPool2d(2), nn.Dropout(0.2),
+            nn.Conv2d(1, 16, 3, padding=1), nn.BatchNorm2d(16), nn.ReLU(),
+            nn.MaxPool2d(2), nn.Dropout(0.15),
 
-            nn.Conv2d(16, 32, 3, padding=1), nn.ReLU(),
-            nn.MaxPool2d(2), nn.Dropout(0.2),
+            nn.Conv2d(16, 32, 3, padding=1), nn.BatchNorm2d(32), nn.ReLU(),
+            nn.MaxPool2d(2), nn.Dropout(0.15),
 
-            nn.Conv2d(32, 64, 3, padding=1), nn.ReLU(),
-            nn.MaxPool2d(2), nn.Dropout(0.3),
+            nn.Conv2d(32, 64, 3, padding=1), nn.BatchNorm2d(64), nn.ReLU(),
+            nn.MaxPool2d(2), nn.Dropout(0.25),
 
-            nn.Conv2d(64, 128, 3, padding=1), nn.ReLU(),
-            nn.MaxPool2d(2), nn.Dropout(0.3),
+            nn.Conv2d(64, 128, 3, padding=1), nn.BatchNorm2d(128), nn.ReLU(),
+            nn.MaxPool2d(2), nn.Dropout(0.25),
         )
 
-        # RNN sur la dimension temps
-        # input_size = 128 * freq_out (freq_out ≈ 128 / 16 = 8)
-        self.freq_out = 128 // 16  # si ton F=128 est fixe
+        # Si ton F initial = 128 → après 4 MaxPool2d(2) : F_out = 128 / 16 = 8
+        self.freq_out = 128 // 16
         self.rnn_input_size = 128 * self.freq_out
 
         self.rnn = nn.GRU(
@@ -91,22 +90,26 @@ class SmallCRNN(nn.Module):
 
     def forward(self, x):
         # x: [B,1,128,T]
-        if self.augment and self.training:
-            x = spec_augment(x, time_mask=32, freq_mask=16, p=0.5)
+        if self.augment:
+            x = spec_augment(x, time_mask=24, freq_mask=12, p=0.5)
 
-        x = self.cnn(x)  # [B, 128, F_out, T_out]
+        x = self.cnn(x)           # [B, 128, F_out, T_out]
         B, C, F, T = x.shape
 
-        # -> [B, T, C*F]
-        x = x.permute(0, 3, 1, 2).contiguous()  # [B, T, C, F]
-        x = x.view(B, T, C * F)                # [B, T, C*F]
+        x = x.permute(0, 3, 1, 2)  # [B, T, C, F]
+        x = x.reshape(B, T, C * F) # [B, T, C*F]
 
-        out, _ = self.rnn(x)                   # [B, T, 2*hidden]
-        # pooling temporel: moyenne sur T
-        out = out.mean(dim=1)                  # [B, 2*hidden]
+        out, h = self.rnn(x)       # out: [B, T, 2H], h: [2*n_layers, B, H]
 
-        logits = self.fc(out)
+        # On prend le dernier état de chaque direction et on concatène
+        # h[-2] = dernier layer, direction forward ; h[-1] = dernier layer, direction backward
+        h_fw = h[-2]  # [B, H]
+        h_bw = h[-1]  # [B, H]
+        h_cat = torch.cat([h_fw, h_bw], dim=1)  # [B, 2H]
+
+        logits = self.fc(h_cat)
         return logits
+
 
 
 class AttnPool(nn.Module):

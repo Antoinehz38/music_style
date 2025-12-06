@@ -58,7 +58,7 @@ def train(
             T_max=config_run.epoch
         )
 
-    loss_fn = torch.nn.CrossEntropyLoss()
+    loss_fn = torch.nn.CrossEntropyLoss(label_smoothing=0.1)
     writer = SummaryWriter(log_dir=log_dir)
 
     best_val_loss = float("inf")
