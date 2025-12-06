@@ -69,7 +69,6 @@ def train(
 
     patience = int(config_run.epoch * 1)
     epochs_no_improve = 0
-    min_delta = 0.0
 
     for ep in range(1, config_run.epoch + 1):
         model.train()
@@ -106,21 +105,19 @@ def train(
             f"| {dt:.1f}s"
         )
 
-        if val_loss < best_val_loss - min_delta:
-            if val_acc> best_val_acc:
-                best_val_acc = val_acc
+        if val_loss < best_val_loss :
             best_val_loss = val_loss
             epochs_no_improve = 0
             model_path = "src/weight/best_model_val_loss.pt"
             torch.save(model.state_dict(), model_path)
             print(f"saved best_val_loss model at epoch {ep}")
-        elif val_acc > best_val_acc:
+        if val_acc > best_val_acc:
             best_val_acc = val_acc
             epochs_no_improve = 0
             model_path = "src/weight/best_model_val_acc.pt"
             torch.save(model.state_dict(), model_path)
             print(f"saved best_val_acc model at epoch {ep}")
-        else:
+        if val_acc < best_val_acc and val_loss > best_val_loss:
             epochs_no_improve += 1
             print(f"no improvement for {epochs_no_improve} epoch(s)")
 
