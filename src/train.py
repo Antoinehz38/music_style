@@ -106,6 +106,8 @@ def train(
         )
 
         if val_loss < best_val_loss - min_delta:
+            if val_acc> best_val_acc:
+                best_val_acc = val_acc
             best_val_loss = val_loss
             epochs_no_improve = 0
             model_path = "src/weight/best_model_val_loss.pt"

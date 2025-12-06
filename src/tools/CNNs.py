@@ -111,6 +111,71 @@ class SmallCRNN(nn.Module):
         return logits
 
 
+class TemporalAttentionPool(nn.Module):
+    def __init__(self, dim):
+        super().__init__()
+        # vecteur de requête global appris (un "token résumé")
+        self.query = nn.Parameter(torch.randn(1, 1, dim))
+        self.attn = nn.MultiheadAttention(
+            embed_dim=dim,
+            num_heads=4,
+            batch_first=True
+        )
+
+    def forward(self, x):
+        """
+        x: [B, T, D]
+        retourne: [B, D]
+        """
+        B, T, D = x.shape
+        q = self.query.expand(B, 1, D)  # [B,1,D] même query pour tous les batchs
+
+        # q = "résumé" qui regarde toute la séquence x
+        out, _ = self.attn(q, x, x)     # out: [B,1,D]
+        return out.squeeze(1)           # [B,D]
+
+class SmallCNN_Attn(nn.Module):
+    def __init__(self, n_classes, augment: bool = False):
+        super().__init__()
+        self.augment = augment
+
+        self.cnn = nn.Sequential(
+            nn.Conv2d(1, 16, 3, padding=1), nn.BatchNorm2d(16), nn.ReLU(),
+            nn.MaxPool2d(2), nn.Dropout(0.15),
+
+            nn.Conv2d(16, 32, 3, padding=1), nn.BatchNorm2d(32), nn.ReLU(),
+            nn.MaxPool2d(2), nn.Dropout(0.15),
+
+            nn.Conv2d(32, 64, 3, padding=1), nn.BatchNorm2d(64), nn.ReLU(),
+            nn.MaxPool2d(2), nn.Dropout(0.25),
+
+            nn.Conv2d(64, 128, 3, padding=1), nn.BatchNorm2d(128), nn.ReLU(),
+            nn.MaxPool2d(2), nn.Dropout(0.25),
+        )
+
+        # F initial = 128 → après 4 MaxPool2d(2) : F_out = 128 / 16 = 8
+        self.freq_out = 128 // 16      # = 8 si F=128
+        self.feature_dim = 128 * self.freq_out  # D = 128 * 8 = 1024
+
+        self.attn_pool = TemporalAttentionPool(self.feature_dim)
+        self.fc = nn.Linear(self.feature_dim, n_classes)
+
+    def forward(self, x):
+        # x: [B,1,128,T]
+        if self.augment:
+            x = spec_augment(x, time_mask=24, freq_mask=12, p=0.5)
+
+        x = self.cnn(x)            # [B,128,F_out,T_out]
+        B, C, F, T = x.shape
+
+        # → [B, T_out, C*F]
+        x = x.permute(0, 3, 1, 2).contiguous()  # [B,T,C,F]
+        x = x.view(B, T, C * F)                 # [B,T,D]
+
+        x = self.attn_pool(x)                   # [B,D]
+        logits = self.fc(x)                     # [B,n_classes]
+        return logits
+
 
 class AttnPool(nn.Module):
     def __init__(self, C):
@@ -227,4 +292,4 @@ class CRNN(nn.Module):
 
 
 
-MODEL_PARAMS = {"SmallCNN": SmallCNN, "CRNN": CRNN, "SmallCRNN": SmallCRNN}
+MODEL_PARAMS = {"SmallCNN": SmallCNN, "CRNN": CRNN, "SmallCRNN": SmallCRNN, "SmallCNN_Attn": SmallCNN_Attn}
