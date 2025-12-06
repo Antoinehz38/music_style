@@ -6,6 +6,10 @@ seed = 1234
 np.random.seed(seed)
 torch.manual_seed(seed)
 torch.cuda.manual_seed_all(seed)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+torch.use_deterministic_algorithms(True, warn_only=True)
+
 
 torch.set_num_threads(os.cpu_count())
 print('nombre de cpu : ', os.cpu_count())
@@ -30,6 +34,7 @@ OPTIM_PARAMS = {"AdamW":AdamW, "Adam":Adam}
 def seed_worker(worker_id):
     worker_seed = torch.initial_seed() % 2**32
     np.random.seed(worker_seed)
+    random.seed(worker_seed)
 
 g_train = torch.Generator().manual_seed(seed)
 g_val   = torch.Generator().manual_seed(seed)
