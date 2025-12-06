@@ -66,7 +66,7 @@ def train(
     global_step = 0
 
 
-    patience = int(config_run.epoch *0.2)
+    patience = int(config_run.epoch * 1)
     epochs_no_improve = 0
     min_delta = 0.0
 
