@@ -2,6 +2,11 @@ import os, numpy as np, json
 import torch
 import shutil
 
+seed = 1234
+np.random.seed(seed)
+torch.manual_seed(seed)
+torch.cuda.manual_seed_all(seed)
+
 torch.set_num_threads(os.cpu_count())
 print('nombre de cpu : ', os.cpu_count())
 torch.set_num_interop_threads(1)
@@ -21,10 +26,6 @@ from src.eval_model import eval_acc_multicrop_majority, eval_loss_acc
 
 OPTIM_PARAMS = {"AdamW":AdamW, "Adam":Adam}
 
-seed = 1234
-np.random.seed(seed)
-torch.manual_seed(seed)
-torch.cuda.manual_seed_all(seed)
 
 def seed_worker(worker_id):
     worker_seed = torch.initial_seed() % 2**32

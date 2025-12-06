@@ -1,6 +1,10 @@
 import torch.nn as nn
 import torch
 
+seed = 1234
+torch.manual_seed(seed)
+torch.cuda.manual_seed_all(seed)
+
 def spec_augment(x, time_mask=24, freq_mask=12, p=0.5):
     """
     x: [B,1,128,T]
