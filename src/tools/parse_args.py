@@ -6,7 +6,7 @@ def parse_args():
     p.add_argument("--run_from", type=str, default="new_conf")
     p.add_argument("--baseline", type=bool, default=False)
     p.add_argument("--target_T", type=int, default=1292)
-    p.add_argument("--random_crop", type=bool, default=True)
+    p.add_argument("--random_crop", type=bool, default=False)
     p.add_argument("--model_type", type=str, default="SmallCNN")
     p.add_argument("--dataset_type", type=str, default="MelNpyDataset")
     p.add_argument("--optim_type", type=str, default="Adam")
