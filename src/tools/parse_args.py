@@ -4,7 +4,6 @@ def parse_args():
     p = argparse.ArgumentParser()
 
     p.add_argument("--run_from", type=str, default="new_conf")
-    p.add_argument("--baseline", type=bool, default=False)
     p.add_argument("--target_T", type=int, default=1292)
     p.add_argument("--random_crop", type=bool, default=False)
     p.add_argument("--model_type", type=str, default="SmallCNN")

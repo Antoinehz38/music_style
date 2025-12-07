@@ -147,7 +147,6 @@ if __name__ == "__main__":
     now = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 
     args = parse_args()
-    print('baseline = ', args.baseline)
     if args.run_from == "new_conf":
         config_run = RunSummary(random_crop=args.random_crop, model_type=args.model_type, dataset_type=args.dataset_type,
                                 optim_type=args.optim_type,target_T=args.target_T, seed=seed, batch_size=args.batch_size,
