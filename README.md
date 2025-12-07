@@ -58,3 +58,9 @@ To see the results, how the baseline perform you can run
 ## Results
 
 The baseline has a 58,125 % accuracy which is good but not great, let's try to improve it 
+
+
+# REMOTE GPU
+
+If you want to use a remote gpu, just download the mels128 data and the metadata as private dataset on kaggle and 
+you can use the jupiter notebook [music-style.ipynb](music-style.ipynb) to launch your setup 
