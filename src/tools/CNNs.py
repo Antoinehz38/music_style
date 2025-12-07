@@ -10,25 +10,19 @@ def spec_augment(x, time_mask=24, freq_mask=12, p=0.5):
     x: [B,1,128,T]
     Apply random time/freq masking on-the-fly.
     """
-    if not x.requires_grad:  # allow use under no_grad too
+    if not x.requires_grad:
         x = x.clone()
-
     B, _, F, T = x.shape
     if torch.rand(1).item() > p:
         return x
-
-    # freq mask
     f = torch.randint(0, freq_mask + 1, (1,)).item()
     if f > 0:
         f0 = torch.randint(0, max(1, F - f), (1,)).item()
         x[:, :, f0:f0 + f, :] = 0.0
-
-    # time mask
     t = torch.randint(0, time_mask + 1, (1,)).item()
     if t > 0:
         t0 = torch.randint(0, max(1, T - t), (1,)).item()
         x[:, :, :, t0:t0 + t] = 0.0
-
     return x
 
 class SmallCNN(nn.Module):
@@ -66,16 +60,16 @@ class SmallCRNN(nn.Module):
         # CNN : je garde ta structure mais j'ajoute BatchNorm et je réduis un peu les dropout
         self.cnn = nn.Sequential(
             nn.Conv2d(1, 16, 3, padding=1), nn.BatchNorm2d(16), nn.ReLU(),
-            nn.MaxPool2d(2), nn.Dropout(0.15),
+            nn.MaxPool2d(2), nn.Dropout(0.2),
 
             nn.Conv2d(16, 32, 3, padding=1), nn.BatchNorm2d(32), nn.ReLU(),
-            nn.MaxPool2d(2), nn.Dropout(0.15),
+            nn.MaxPool2d(2), nn.Dropout(0.2),
 
             nn.Conv2d(32, 64, 3, padding=1), nn.BatchNorm2d(64), nn.ReLU(),
-            nn.MaxPool2d(2), nn.Dropout(0.25),
+            nn.MaxPool2d(2), nn.Dropout(0.3),
 
             nn.Conv2d(64, 128, 3, padding=1), nn.BatchNorm2d(128), nn.ReLU(),
-            nn.MaxPool2d(2), nn.Dropout(0.25),
+            nn.MaxPool2d(2), nn.Dropout(0.3),
         )
 
         # Si ton F initial = 128 → après 4 MaxPool2d(2) : F_out = 128 / 16 = 8
@@ -95,7 +89,7 @@ class SmallCRNN(nn.Module):
     def forward(self, x):
         # x: [B,1,128,T]
         if self.augment:
-            x = spec_augment(x, time_mask=24, freq_mask=12, p=0.5)
+            x = spec_augment(x, time_mask=32, freq_mask=16, p=0.5)
 
         x = self.cnn(x)           # [B, 128, F_out, T_out]
         B, C, F, T = x.shape

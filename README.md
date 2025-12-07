@@ -57,22 +57,4 @@ To see the results, how the baseline perform you can run
 ```
 ## Results
 
-The baseline has a 45.9375 % accuracy which is good but not great, let's try to improve it 
-
-## First idea 
-
-Instead of taking 
-
-Let's first reduce the images and take only a random crop of 128*128 pixels we keep the same CNN and still 20 epochs.
-
-You can reproduce the training using 
-
-```bash
- python -m src.train --run_from "src/runs_configs/2025-11-24_22-16-23.json" 
-```
-
-Again to see the training data : 
-
-```bash
-tensorboard --logdir=./src/runs --port=6006 
-```
+The baseline has a 58,125 % accuracy which is good but not great, let's try to improve it 
