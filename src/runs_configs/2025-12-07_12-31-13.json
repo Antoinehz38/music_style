@@ -1,0 +1,17 @@
+{
+  "model_type": "SmallCRNN",
+  "dataset_type": "MelNpyDataset",
+  "batch_size": 32,
+  "target_T": 1292,
+  "random_crop": true,
+  "epoch": 30,
+  "lr": 0.001,
+  "optim_type": "AdamW",
+  "weight_decay": 0.0002,
+  "seed": 1234,
+  "use_augment": true,
+  "final_result": 0.628125,
+  "name": "best_model_2025-12-07_12-31-13.pt",
+  "val_training": false,
+  "scheduler": true
+}

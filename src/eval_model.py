@@ -1,8 +1,16 @@
 import numpy as np
-import json, torch, os
+import json, torch, os, random
 from torch.utils.data import DataLoader
 from pathlib import Path
 import torch.nn.functional as F
+
+seed = 1234
+np.random.seed(seed)
+torch.manual_seed(seed)
+torch.cuda.manual_seed_all(seed)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+torch.use_deterministic_algorithms(True, warn_only=True)
 
 from src.tools.mels_dataset import MelNpyDataset
 from src.tools.CNNs import MODEL_PARAMS, SmallCNN
@@ -15,6 +23,7 @@ def seed_worker(worker_id):
     # seed unique et déterministe par worker
     worker_seed = torch.initial_seed() % 2**32
     np.random.seed(worker_seed)
+    random.seed(worker_seed)
 
 def eval_loss_acc(model, loader, loss_fn, device):
     model.eval()

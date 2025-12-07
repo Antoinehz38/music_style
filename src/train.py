@@ -163,14 +163,17 @@ if __name__ == "__main__":
 
     if config_run.val_training:
         split_train = "trainval"
+        split_val = "test"
     else:
         split_train = "training"
+        split_val = "validation"
+
 
     Dataset = DATASET_PARAMS.get(config_run.dataset_type, MelNpyDataset)
 
     train_ds = Dataset(mels_root, metadata_root, split=split_train,
                              target_T=config_run.target_T, random_crop=config_run.random_crop)
-    val_ds   = MelNpyDataset(mels_root, metadata_root, split="validation",
+    val_ds   = MelNpyDataset(mels_root, metadata_root, split=split_val,
                              target_T=config_run.target_T, random_crop=config_run.random_crop)
     test_ds  = MelNpyDataset(mels_root, metadata_root, split="test",
                              target_T=1292, random_crop=config_run.random_crop)
